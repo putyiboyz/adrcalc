@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Szállítási Összesítő Táblázat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #000;
+            color: #fff;
+        }
+        label {
+            display: block;
+            margin: 8px 0 4px;
+            color: #fff;
+        }
+        input, button, select {
+            margin-bottom: 8px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+            font-size: 14px;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        h1, h2 {
+            font-size: 18px;
+            font-weight: normal;
+            color: #fff;
+        }
+        h1 {
+            font-size: 22px;
+        }
+        h2 {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Szállítási Összesítő Táblázat</h1>
+
+    <h2>Induló Készlet Beállítása</h2>
+    <label for="productSelect">Termék kiválasztása:</label>
+    <select id="productSelect" aria-label="Termék kiválasztása">
+        <option value="11.5">Pb 11.5</option>
+        <option value="12">Mot 12</option>
+        <option value="23">Pb 23</option>
+        <option value="11">Pr KL11</option>
+        <option value="25">Pr 25</option>
+        <option value="3">Pb 3</option>
+        <option value="KS11">Pr KS11</option>
+        <option value="PP25">Pr25 PP</option>
+    </select>
+
+    <label for="initialStock">Kezdő mennyiség:</label>
+    <input type="number" id="initialStock" value="0" min="0" aria-label="Kezdő mennyiség">
+
+    <button onclick="setInitialStock()" aria-label="Kezdő Készlet Beállítása">Kezdő Készlet Beállítása</button>
+
+    <h2>Eladások Nyilvántartása</h2>
+    <label for="soldProductSelect">Eladott Termék kiválasztása:</label>
+    <select id="soldProductSelect" aria-label="Eladott Termék kiválasztása"></select>
+
+    <label for="soldQuantity">Eladott Mennyiség:</label>
+    <input type="number" id="soldQuantity" value="0" min="0" aria-label="Eladott Mennyiség">
+
+    <button onclick="recordSale()" aria-label="Eladás Rögzítése">Eladás Rögzítése</button>
+
+    <h2>Összesített Eredmények</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Termék</th>
+                <th>Kezdő Készlet</th>
+                <th>Eladott Mennyiség</th>
+                <th>Maradék Készlet</th>
+            </tr>
+        </thead>
+        <tbody id="resultsTableBody"></tbody>
+    </table>
+
+    <h2>Összesített Súly és ADR Pontok</h2>
+    <p id="totalWeight">Autón lévő összesített súly (kg): 0</p>
+    <p id="totalADR">ADR Pontok: 0</p>
+    <p id="emptyContainersCount">Üres csomagoló eszközök száma: 0</p>
+
+    <audio id="clickSound" src="click.mp3" preload="auto"></audio>
+
+    <script>
+        const productNames = {
+            "11.5": "Pb 11.5",
+            "12": "Mot 12",
+            "23": "Pb 23",
+            "11": "Pr KL11",
+            "25": "Pr 25",
+            "3": "Pb 3",
+            "KS11": "Pr KS11",
+            "PP25": "Pr25 PP"
+        };
+
+        const productWeights = {
+            "11.5": 11.5,
+            "12": 12,
+            "23": 23,
+            "11": 11,
+            "25": 25,
+            "3": 3,
+            "KS11": 11,
+            "PP25": 25
+        };
+
+        const initialStock = {};
+        const currentStock = {};
+        let totalEmptyContainers = 0;
+
+        function playClickSound() {
+            const audio = document.getElementById('clickSound');
+            audio.play();
+        }
+
+        function setInitialStock() {
+            playClickSound();
+            const productCode = document.getElementById('productSelect').value;
+            const quantity = parseFloat(document.getElementById('initialStock').value);
+
+            if (isNaN(quantity) || quantity < 0) {
+                alert("Kérlek, adj meg egy érvényes mennyiséget!");
+                return;
+            }
+
+            initialStock[productCode] = quantity;
+            currentStock[productCode] = quantity;
+
+            updateResults();
+            updateSoldProductSelect();
+        }
+
+        function recordSale() {
+            playClickSound();
+            const productCode = document.getElementById('soldProductSelect').value;
+            const soldQuantity = parseFloat(document.getElementById('soldQuantity').value);
+
+            if (isNaN(soldQuantity) || soldQuantity < 0) {
+                alert("Kérlek, adj meg egy érvényes mennyiséget!");
+                return;
+            }
+
+            if (currentStock[productCode] === undefined || currentStock[productCode] < soldQuantity) {
+                alert("Nincs elegendő készlet!");
+                return;
+            }
+
+            currentStock[productCode] -= soldQuantity;
+            totalEmptyContainers += soldQuantity;
+
+            document.getElementById('soldQuantity').value = 0;
+
+            updateResults();
+        }
+
+        function updateSoldProductSelect() {
+            const soldProductSelect = document.getElementById('soldProductSelect');
+            soldProductSelect.innerHTML = '';
+
+            for (const productCode in initialStock) {
+                if (initialStock[productCode] > 0) {
+                    const option = document.createElement('option');
+                    option.value = productCode;
+                    option.textContent = productNames[productCode];
+                    soldProductSelect.appendChild(option);
+                }
+            }
+        }
+
+        function updateResults() {
+            const resultsTableBody = document.getElementById('resultsTableBody');
+            resultsTableBody.innerHTML = '';
+
+            let totalWeightOnTruck = 0;
+
+            for (const productCode in currentStock) {
+                const weight = productWeights[productCode];
+                const weightOnTruck = currentStock[productCode] * weight;
+                totalWeightOnTruck += weightOnTruck;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${productNames[productCode]}</td>
+                    <td>${initialStock[productCode]}</td>
+                    <td>${initialStock[productCode] - currentStock[productCode]}</td>
+                    <td>${currentStock[productCode]}</td>
+                `;
+                resultsTableBody.appendChild(row);
+            }
+
+            const totalADRPoints = totalWeightOnTruck * 3;
+
+            document.getElementById('totalWeight').textContent = 'Autón lévő összesített súly (kg): ' + totalWeightOnTruck.toFixed(2);
+            document.getElementById('totalADR').textContent = 'ADR Pontok: ' + totalADRPoints.toFixed(2);
+            document.getElementById('emptyContainersCount').textContent = 'Üres csomagoló eszközök száma: ' + totalEmptyContainers;
+        }
+
+        updateSoldProductSelect();
+    </script>
+</body>
+</html>
