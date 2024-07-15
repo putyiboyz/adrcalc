@@ -1,0 +1,2 @@
+# adrcalc
+Gáztömeg adr számoló
